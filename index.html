@@ -111,8 +111,9 @@
 
     async function start() {
       // Load models
-      await faceapi.nets.tinyFaceDetector.loadFromUri('./models');
-      await faceapi.nets.faceExpressionNet.loadFromUri('./models');
+    await faceapi.nets.tinyFaceDetector.loadFromUri('./models/tiny_face_detector_model');
+    await faceapi.nets.faceExpressionNet.loadFromUri('./models/face_expression_model');
+
 
       const video = document.getElementById('video');
       const overlay = document.getElementById('overlay');
