@@ -172,18 +172,21 @@
 
           const expressions = detection.expressions;
 
-          let filipinoEmotion = "NEUTRAL";
-          const maxExpression = Object.entries(expressions).sort((a, b) => b[1] - a[1])[0];
+          // New better mapping
+          const sorted = Object.entries(expressions).sort((a, b) => b[1] - a[1]);
+          const [topEmotion, topScore] = sorted[0];
+          const MIN_THRESHOLD = 0.4;
 
-if (expressions.angry > 0.03 || expressions.disgusted > 0.03) {
-  filipinoEmotion = "GIGIL";
-} else if (expressions.sad > 0.03 || expressions.fearful > 0.03) {
-  filipinoEmotion = "TAMPO";
-} else if (expressions.happy > 0.03 || expressions.surprised > 0.03) {
-  filipinoEmotion = "KILIG";
-} else {
-  filipinoEmotion = "NEUTRAL";
-}
+          let filipinoEmotion = "NEUTRAL";
+          if (topScore >= MIN_THRESHOLD) {
+            if (topEmotion === "angry" || topEmotion === "disgusted") {
+              filipinoEmotion = "GIGIL";
+            } else if (topEmotion === "sad" || topEmotion === "fearful") {
+              filipinoEmotion = "TAMPO";
+            } else if (topEmotion === "happy" || topEmotion === "surprised") {
+              filipinoEmotion = "KILIG";
+            }
+          }
 
           context.font = '20px Arial';
           context.fillStyle = 'yellow';
