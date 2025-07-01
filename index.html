@@ -175,14 +175,14 @@
           let filipinoEmotion = "NEUTRAL";
           const maxExpression = Object.entries(expressions).sort((a, b) => b[1] - a[1])[0];
 
-if (maxExpression[0] === "neutral") {
-  filipinoEmotion = "NEUTRAL";
-} else if (expressions.sad > 0.4 || expressions.fearful > 0.4) {
-  filipinoEmotion = "TAMPO";
-} else if (expressions.happy > 0.3 || expressions.surprised > 0.3) {
-  filipinoEmotion = "KILIG";
-} else if (expressions.angry > 0.05 || expressions.disgusted > 0.05) {
+if (expressions.angry > 0.05 || expressions.disgusted > 0.05) {
   filipinoEmotion = "GIGIL";
+} else if (expressions.happy > 0.05 || expressions.surprised > 0.05) {
+  filipinoEmotion = "KILIG";
+} else if (expressions.sad > 0.05 || expressions.fearful > 0.05) {
+  filipinoEmotion = "TAMPO";
+} else if (expressions.neutral > 0.05) {
+  filipinoEmotion = "NEUTRAL";
 } else {
   filipinoEmotion = "NEUTRAL";
 }
