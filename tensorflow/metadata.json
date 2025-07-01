@@ -1,1 +1,1 @@
-{"tfjsVersion":"1.7.4","tmVersion":"2.4.10","packageVersion":"0.8.4-alpha2","packageName":"@teachablemachine/image","timeStamp":"2025-07-01T08:53:40.574Z","userMetadata":{},"modelName":"tm-my-image-model","labels":["neutral","gigil","kilig","tampo"],"imageSize":224}
+{"tfjsVersion":"1.7.4","tmVersion":"2.4.10","packageVersion":"0.8.4-alpha2","packageName":"@teachablemachine/image","timeStamp":"2025-07-01T13:37:38.032Z","userMetadata":{},"modelName":"Emotion test","labels":["neutral","gigil","kilig","tampo"],"imageSize":224}
