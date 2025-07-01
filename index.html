@@ -125,13 +125,11 @@
   <script>
     let emotionLog = [];
     let detectionInterval;
-    let modelsLoaded = false;
     let detectionRunning = false;
 
     async function loadModels() {
       await faceapi.nets.tinyFaceDetector.loadFromUri('./models/tiny_face_detector_model');
       await faceapi.nets.faceExpressionNet.loadFromUri('./models/face_expression_model');
-      modelsLoaded = true;
     }
 
     async function initCamera() {
@@ -171,15 +169,17 @@
           faceapi.draw.drawDetections(overlay, resized);
 
           const expressions = detection.expressions;
-          const sorted = Object.entries(expressions).sort((a, b) => b[1] - a[1]);
-          const topEmotion = sorted[0][0];
+          const angryScore = expressions.angry;
+          const sadScore = expressions.sad;
+          const happyScore = expressions.happy;
+          const surprisedScore = expressions.surprised;
 
           let filipinoEmotion = "NEUTRAL";
-          if (topEmotion === "angry" || topEmotion === "disgusted") {
+          if (angryScore > 0.2) {
             filipinoEmotion = "GIGIL";
-          } else if (topEmotion === "sad" || topEmotion === "fearful") {
+          } else if (sadScore > 0.4) {
             filipinoEmotion = "TAMPO";
-          } else if (topEmotion === "happy" || topEmotion === "surprised") {
+          } else if (happyScore > 0.4 || surprisedScore > 0.4) {
             filipinoEmotion = "KILIG";
           }
 
