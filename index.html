@@ -135,8 +135,18 @@
     async function loadModelAndLabels() {
       logDiv.innerText = 'Loading model...';
       model = await tf.loadLayersModel('./tensorflow/model.json');
-      const res = await fetch('./tensorflow/labels.json'); // Fixed path
-      labels = await res.json();
+
+      // Load metadata.json instead of labels.json!
+      const res = await fetch('./tensorflow/metadata.json');
+      const metadata = await res.json();
+
+      // Pull out the labels array safely
+      if (metadata && Array.isArray(metadata.labels)) {
+        labels = metadata.labels;
+      } else {
+        throw new Error("metadata.json is missing 'labels' array!");
+      }
+
       logDiv.innerText = 'Model and labels loaded. Initializing camera...';
     }
 
@@ -166,14 +176,15 @@
       const prediction = model.predict(input);
       const data = await prediction.data();
 
-      if (!labels || labels.length === 0) {
-        ctx.fillStyle = 'red';
-        ctx.fillText('Error: labels missing!', 20, 40);
-        return;
-      }
-
       const topIdx = data.indexOf(Math.max(...data));
-      let detectedEmotion = labels[topIdx];
+      let detectedEmotion;
+
+      // SAFELY pick from labels
+      if (labels && labels[topIdx] !== undefined) {
+        detectedEmotion = labels[topIdx];
+      } else {
+        detectedEmotion = "unknown";
+      }
 
       ctx.font = '20px Arial';
       ctx.fillStyle = 'yellow';
