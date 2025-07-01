@@ -131,8 +131,8 @@
 
     // Fixed thresholds
     const kiligThreshold = 0.5;
-    const gigilThreshold = 0.4;
-    const tampoThreshold = 0.4;
+    const gigilThreshold = 0.25;
+    const tampoThreshold = 0.25;
 
     async function loadModels() {
       await faceapi.nets.tinyFaceDetector.loadFromUri('./models/tiny_face_detector_model');
