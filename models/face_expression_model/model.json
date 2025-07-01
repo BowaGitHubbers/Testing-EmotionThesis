@@ -1,1 +1,1 @@
-{"modelTopology": {}, "weightsManifest": [{"paths": ["shard1"], "weights": []}]}
+{"model": "face_expression_model"}

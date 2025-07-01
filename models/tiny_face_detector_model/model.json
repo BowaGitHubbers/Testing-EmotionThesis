@@ -1,1 +1,1 @@
-{"modelTopology": {}, "weightsManifest": [{"paths": ["shard1"], "weights": []}]}
+{"model": "tiny_face_detector_model"}
