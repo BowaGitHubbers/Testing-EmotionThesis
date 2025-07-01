@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Respondent Emotion Detector</title>
+  <title>Survey with Live Emotion Detection</title>
 
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -125,13 +125,14 @@
   <script>
     let emotionLog = [];
     let detectionInterval;
-    let modelsLoaded = false;
     let detectionRunning = false;
+    const expressionsHistory = [];
+    const MAX_HISTORY = 10;
+    let lastLogTime = 0;
 
     async function loadModels() {
       await faceapi.nets.tinyFaceDetector.loadFromUri('./models/tiny_face_detector_model');
       await faceapi.nets.faceExpressionNet.loadFromUri('./models/face_expression_model');
-      modelsLoaded = true;
     }
 
     async function initCamera() {
@@ -148,6 +149,29 @@
       }
     }
 
+    function mapToFilipinoEmotion(history) {
+      const avg = {
+        happy: 0,
+        surprised: 0,
+        angry: 0,
+        disgusted: 0,
+        sad: 0,
+        neutral: 0,
+        fearful: 0
+      };
+
+      history.forEach(e => {
+        for (let k in avg) {
+          avg[k] += e[k] / history.length;
+        }
+      });
+
+      if (avg.happy > 0.5 || avg.surprised > 0.5) return "KILIG";
+      if (avg.angry > 0.4) return "GIGIL";
+      if (avg.sad > 0.4) return "TAMPO";
+      return "NEUTRAL";
+    }
+
     function startDetection() {
       const video = document.getElementById('video');
       const overlay = document.getElementById('overlay');
@@ -159,44 +183,34 @@
       overlay.height = video.videoHeight;
 
       detectionInterval = setInterval(async () => {
-        const detection = await faceapi
+        const result = await faceapi
           .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
           .withFaceExpressions();
 
         context.clearRect(0, 0, overlay.width, overlay.height);
 
-        if (detection) {
-          const dims = faceapi.matchDimensions(overlay, video, true);
-          const resized = faceapi.resizeResults(detection, dims);
-          faceapi.draw.drawDetections(overlay, resized);
+        if (result && result.expressions) {
+          expressionsHistory.push(result.expressions);
+          if (expressionsHistory.length > MAX_HISTORY) expressionsHistory.shift();
 
-          const expressions = detection.expressions;
+          const filipinoEmotion = mapToFilipinoEmotion(expressionsHistory);
 
-          // More sensitive thresholds!
-          const sorted = Object.entries(expressions).sort((a, b) => b[1] - a[1]);
-          const [topEmotion, topScore] = sorted[0];
-          const MIN_THRESHOLD = 0.25;
-
-          let filipinoEmotion = "NEUTRAL";
-          if (topScore >= MIN_THRESHOLD) {
-            if (topEmotion === "angry") {
-              filipinoEmotion = "GIGIL";
-            } else if (topEmotion === "sad") {
-              filipinoEmotion = "TAMPO";
-            } else if (topEmotion === "happy" || topEmotion === "surprised") {
-              filipinoEmotion = "KILIG";
-            }
-          }
+          faceapi.draw.drawDetections(overlay, result);
 
           context.font = '20px Arial';
           context.fillStyle = 'yellow';
           context.fillText(`Detected: ${filipinoEmotion}`, 20, 40);
 
-          const logEntry = {
-            time: new Date().toLocaleTimeString(),
-            filipino: filipinoEmotion
-          };
-          emotionLog.push(logEntry);
+          // Only log once per minute
+          const now = Date.now();
+          if (!lastLogTime || now - lastLogTime >= 60000) {
+            const logEntry = {
+              time: new Date().toLocaleTimeString(),
+              filipino: filipinoEmotion
+            };
+            emotionLog.push(logEntry);
+            lastLogTime = now;
+          }
 
           logDiv.innerText = emotionLog
             .slice(-5)
