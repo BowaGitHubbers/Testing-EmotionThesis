@@ -171,20 +171,15 @@
           faceapi.draw.drawDetections(overlay, resized);
 
           const expressions = detection.expressions;
-          const angry = expressions.angry || 0;
-          const disgusted = expressions.disgusted || 0;
-          const sad = expressions.sad || 0;
-          const fearful = expressions.fearful || 0;
-          const happy = expressions.happy || 0;
-          const surprised = expressions.surprised || 0;
+          const sorted = Object.entries(expressions).sort((a, b) => b[1] - a[1]);
+          const topEmotion = sorted[0][0];
 
           let filipinoEmotion = "NEUTRAL";
-
-          if ((angry + disgusted) >= 0.70) {
+          if (topEmotion === "angry" || topEmotion === "disgusted") {
             filipinoEmotion = "GIGIL";
-          } else if ((sad + fearful) >= 0.40) {
+          } else if (topEmotion === "sad" || topEmotion === "fearful") {
             filipinoEmotion = "TAMPO";
-          } else if ((happy + surprised) >= 0.40) {
+          } else if (topEmotion === "happy" || topEmotion === "surprised") {
             filipinoEmotion = "KILIG";
           }
 
