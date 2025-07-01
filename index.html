@@ -126,6 +126,8 @@
     let emotionLog = [];
     let detectionInterval;
     let detectionRunning = false;
+    const expressionsHistory = [];
+    const MAX_HISTORY = 10;
 
     async function loadModels() {
       await faceapi.nets.tinyFaceDetector.loadFromUri('./models/tiny_face_detector_model');
@@ -146,6 +148,30 @@
       }
     }
 
+    function mapToFilipinoEmotion(history) {
+      const avg = {
+        happy: 0,
+        surprised: 0,
+        angry: 0,
+        disgusted: 0,
+        sad: 0,
+        neutral: 0,
+        fearful: 0
+      };
+
+      history.forEach(e => {
+        for (let k in avg) {
+          avg[k] += e[k] / history.length;
+        }
+      });
+
+      // Adjust these thresholds to taste
+      if (avg.happy > 0.5 || avg.surprised > 0.5) return "KILIG";
+      if (avg.angry > 0.4) return "GIGIL";
+      if (avg.sad > 0.4) return "TAMPO";
+      return "NEUTRAL";
+    }
+
     function startDetection() {
       const video = document.getElementById('video');
       const overlay = document.getElementById('overlay');
@@ -157,31 +183,19 @@
       overlay.height = video.videoHeight;
 
       detectionInterval = setInterval(async () => {
-        const detection = await faceapi
+        const result = await faceapi
           .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
           .withFaceExpressions();
 
         context.clearRect(0, 0, overlay.width, overlay.height);
 
-        if (detection) {
-          const dims = faceapi.matchDimensions(overlay, video, true);
-          const resized = faceapi.resizeResults(detection, dims);
-          faceapi.draw.drawDetections(overlay, resized);
+        if (result && result.expressions) {
+          expressionsHistory.push(result.expressions);
+          if (expressionsHistory.length > MAX_HISTORY) expressionsHistory.shift();
 
-          const expressions = detection.expressions;
-          const angryScore = expressions.angry;
-          const sadScore = expressions.sad;
-          const happyScore = expressions.happy;
-          const surprisedScore = expressions.surprised;
+          const filipinoEmotion = mapToFilipinoEmotion(expressionsHistory);
 
-          let filipinoEmotion = "NEUTRAL";
-          if (angryScore > 0.2) {
-            filipinoEmotion = "GIGIL";
-          } else if (sadScore > 0.4) {
-            filipinoEmotion = "TAMPO";
-          } else if (happyScore > 0.4 || surprisedScore > 0.4) {
-            filipinoEmotion = "KILIG";
-          }
+          faceapi.draw.drawDetections(overlay, result);
 
           context.font = '20px Arial';
           context.fillStyle = 'yellow';
