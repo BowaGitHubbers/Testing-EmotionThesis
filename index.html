@@ -128,7 +128,7 @@
     let detectionRunning = false;
     const expressionsHistory = [];
     const MAX_HISTORY = 10;
-    let lastLogTime = 0;
+    let lastLogTime = null;
 
     async function loadModels() {
       await faceapi.nets.tinyFaceDetector.loadFromUri('./models/tiny_face_detector_model');
@@ -201,23 +201,24 @@
           context.fillStyle = 'yellow';
           context.fillText(`Detected: ${filipinoEmotion}`, 20, 40);
 
-          // Only log once per minute
+          // Log only once every 30 seconds
           const now = Date.now();
-          if (!lastLogTime || now - lastLogTime >= 60000) {
+          if (!lastLogTime || now - lastLogTime >= 30000) {
+            lastLogTime = now;
             const logEntry = {
               time: new Date().toLocaleTimeString(),
               filipino: filipinoEmotion
             };
             emotionLog.push(logEntry);
-            lastLogTime = now;
+
+            logDiv.innerText = emotionLog
+              .slice(-5)
+              .map(entry => `[${entry.time}] ${entry.filipino}`)
+              .join('\n');
+
+            updateMostCommonEmotion(commonDiv);
           }
 
-          logDiv.innerText = emotionLog
-            .slice(-5)
-            .map(entry => `[${entry.time}] ${entry.filipino}`)
-            .join('\n');
-
-          updateMostCommonEmotion(commonDiv);
         } else {
           context.font = '20px Arial';
           context.fillStyle = 'red';
