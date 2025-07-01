@@ -64,6 +64,12 @@
       border-radius: 8px;
       height: 800px;
     }
+    #commonEmotion {
+      margin-top: 10px;
+      color: #ffb300;
+      font-weight: bold;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -85,11 +91,13 @@
               <video id="video" autoplay muted></video>
               <canvas id="overlay"></canvas>
             </div>
-            <div class="d-flex gap-2 mt-3">
-              <button id="startButton" class="btn btn-warning flex-fill">Start Detection</button>
+            <div class="d-flex flex-wrap gap-2 mt-3">
+              <button id="toggleDetection" class="btn btn-warning flex-fill">Start Detection</button>
               <button id="downloadLog" class="btn btn-warning flex-fill">Download Log</button>
+              <button id="resetLog" class="btn btn-warning flex-fill">Reset Log</button>
             </div>
             <div id="log" class="mt-3">Click "Start Detection" to begin.</div>
+            <div id="commonEmotion"></div>
           </div>
         </div>
       </div>
@@ -118,6 +126,7 @@
     let emotionLog = [];
     let detectionInterval;
     let modelsLoaded = false;
+    let detectionRunning = false;
 
     async function loadModels() {
       await faceapi.nets.tinyFaceDetector.loadFromUri('./models/tiny_face_detector_model');
@@ -144,10 +153,7 @@
       const overlay = document.getElementById('overlay');
       const context = overlay.getContext('2d');
       const logDiv = document.getElementById('log');
-
-      if (detectionInterval) {
-        clearInterval(detectionInterval);
-      }
+      const commonDiv = document.getElementById('commonEmotion');
 
       overlay.width = video.videoWidth;
       overlay.height = video.videoHeight;
@@ -175,7 +181,7 @@
             filipinoEmotion = "TAMPO";
           } else if (expressions.happy > 0.3 || expressions.surprised > 0.3) {
             filipinoEmotion = "KILIG";
-          } else if (expressions.angry > 0.2 || expressions.disgusted > 0.2) {
+          } else if (expressions.angry > 0.15 || expressions.disgusted > 0.15) {
             filipinoEmotion = "GIGIL";
           } else {
             filipinoEmotion = "NEUTRAL";
@@ -196,12 +202,35 @@
             .map(entry => `[${entry.time}] ${entry.filipino}`)
             .join('\n');
 
+          updateMostCommonEmotion(commonDiv);
         } else {
           context.font = '20px Arial';
           context.fillStyle = 'red';
           context.fillText('No face detected', 20, 40);
         }
       }, 1000);
+    }
+
+    function stopDetection() {
+      clearInterval(detectionInterval);
+      detectionInterval = null;
+    }
+
+    function toggleDetection() {
+      const button = document.getElementById('toggleDetection');
+      if (!detectionRunning) {
+        startDetection();
+        detectionRunning = true;
+        button.classList.remove('btn-warning');
+        button.classList.add('btn-danger');
+        button.textContent = 'Stop Detection';
+      } else {
+        stopDetection();
+        detectionRunning = false;
+        button.classList.remove('btn-danger');
+        button.classList.add('btn-warning');
+        button.textContent = 'Start Detection';
+      }
     }
 
     function downloadEmotionLog() {
@@ -223,19 +252,36 @@
       URL.revokeObjectURL(url);
     }
 
+    function resetEmotionLog() {
+      emotionLog = [];
+      document.getElementById('log').innerText = 'Logs cleared.';
+      document.getElementById('commonEmotion').innerText = '';
+    }
+
+    function updateMostCommonEmotion(commonDiv) {
+      if (emotionLog.length === 0) {
+        commonDiv.innerText = '';
+        return;
+      }
+
+      const counts = {};
+      emotionLog.forEach(entry => {
+        counts[entry.filipino] = (counts[entry.filipino] || 0) + 1;
+      });
+
+      const mostCommon = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])[0][0];
+
+      commonDiv.innerText = `Most Common Detected Emotion: ${mostCommon}`;
+    }
+
     window.addEventListener('DOMContentLoaded', async () => {
       await loadModels();
       await initCamera();
 
-      document.getElementById('startButton').addEventListener('click', () => {
-        if (!modelsLoaded) {
-          alert("Models not loaded yet!");
-          return;
-        }
-        startDetection();
-      });
-
+      document.getElementById('toggleDetection').addEventListener('click', toggleDetection);
       document.getElementById('downloadLog').addEventListener('click', downloadEmotionLog);
+      document.getElementById('resetLog').addEventListener('click', resetEmotionLog);
     });
   </script>
 </body>
