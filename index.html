@@ -135,10 +135,9 @@
     async function loadModelAndLabels() {
       logDiv.innerText = 'Loading model...';
       model = await tf.loadLayersModel('./tensorflow/model.json');
-      const res = await fetch('./tensorflow/labels.json');
+      const res = await fetch('./tensorflow/labels.json'); // Fixed path
       labels = await res.json();
       logDiv.innerText = 'Model and labels loaded. Initializing camera...';
-      console.log("Loaded labels:", labels);
     }
 
     async function initCamera() {
@@ -167,15 +166,14 @@
       const prediction = model.predict(input);
       const data = await prediction.data();
 
-      console.log("Predicted probabilities:", data);
-
-      let detectedEmotion = 'unknown';
-      if (labels && data && data.length === labels.length) {
-        const topIdx = data.indexOf(Math.max(...data));
-        detectedEmotion = labels[topIdx].toLowerCase();
-      } else {
-        console.error("Labels and prediction size mismatch or missing!");
+      if (!labels || labels.length === 0) {
+        ctx.fillStyle = 'red';
+        ctx.fillText('Error: labels missing!', 20, 40);
+        return;
       }
+
+      const topIdx = data.indexOf(Math.max(...data));
+      let detectedEmotion = labels[topIdx];
 
       ctx.font = '20px Arial';
       ctx.fillStyle = 'yellow';
