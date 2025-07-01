@@ -7,7 +7,12 @@
 
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- TensorFlow.js -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.12.0/dist/tf.min.js"></script>
+
+  <!-- face-api.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
   <style>
     body {
@@ -129,33 +134,37 @@
     let detectionRunning = false;
     let emotionLog = [];
     let videoStream;
+    let video, overlay, ctx;
+
     const logDiv = document.getElementById('log');
     const commonDiv = document.getElementById('commonEmotion');
 
-    async function loadModelAndLabels() {
-      logDiv.innerText = 'Loading model...';
-      model = await tf.loadLayersModel('./tensorflow/model.json');
+    async function loadModels() {
+      logDiv.innerText = 'Loading models...';
+      // Load face detection
+      await faceapi.nets.tinyFaceDetector.loadFromUri('./models/tiny_face_detector_model');
 
-      // Load metadata.json instead of labels.json!
+      // Load Teachable Machine model
+      model = await tf.loadLayersModel('./tensorflow/model.json');
       const res = await fetch('./tensorflow/metadata.json');
       const metadata = await res.json();
-
-      // Pull out the labels array safely
-      if (metadata && Array.isArray(metadata.labels)) {
-        labels = metadata.labels;
-      } else {
-        throw new Error("metadata.json is missing 'labels' array!");
-      }
-
-      logDiv.innerText = 'Model and labels loaded. Initializing camera...';
+      labels = metadata.labels;
+      logDiv.innerText = 'Models loaded. Initializing camera...';
     }
 
     async function initCamera() {
-      const video = document.getElementById('video');
+      video = document.getElementById('video');
+      overlay = document.getElementById('overlay');
+      ctx = overlay.getContext('2d');
+
       videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
       video.srcObject = videoStream;
       await new Promise(resolve => video.onloadedmetadata = resolve);
       video.play();
+
+      overlay.width = video.videoWidth;
+      overlay.height = video.videoHeight;
+
       logDiv.innerText = 'Camera ready. Click "Start Detection" to begin.';
     }
 
@@ -168,23 +177,25 @@
       });
     }
 
-    async function analyzeFrame(video, overlay) {
-      const ctx = overlay.getContext('2d');
+    async function analyzeFrame() {
       ctx.clearRect(0, 0, overlay.width, overlay.height);
 
+      // Draw face box
+      const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
+      detections.forEach(det => {
+        const box = det.box;
+        ctx.strokeStyle = 'red';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(box.x, box.y, box.width, box.height);
+      });
+
+      // Run classification
       const input = preprocess(video);
       const prediction = model.predict(input);
       const data = await prediction.data();
 
       const topIdx = data.indexOf(Math.max(...data));
-      let detectedEmotion;
-
-      // SAFELY pick from labels
-      if (labels && labels[topIdx] !== undefined) {
-        detectedEmotion = labels[topIdx];
-      } else {
-        detectedEmotion = "unknown";
-      }
+      let detectedEmotion = labels[topIdx] || "unknown";
 
       ctx.font = '20px Arial';
       ctx.fillStyle = 'yellow';
@@ -224,14 +235,7 @@
     }
 
     function startDetection() {
-      const video = document.getElementById('video');
-      const overlay = document.getElementById('overlay');
-      overlay.width = video.videoWidth;
-      overlay.height = video.videoHeight;
-
-      detectionInterval = setInterval(() => {
-        analyzeFrame(video, overlay);
-      }, 1000);
+      detectionInterval = setInterval(analyzeFrame, 1000);
     }
 
     function stopDetection() {
@@ -282,7 +286,7 @@
 
     window.addEventListener('DOMContentLoaded', async () => {
       try {
-        await loadModelAndLabels();
+        await loadModels();
         await initCamera();
 
         document.getElementById('toggleDetection').addEventListener('click', toggleDetection);
