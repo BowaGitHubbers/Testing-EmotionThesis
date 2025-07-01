@@ -7,7 +7,7 @@
 
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.12.0/dist/tf.min.js"></script>
 
   <style>
     body {
@@ -123,111 +123,102 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
-    let emotionLog = [];
+    let model;
+    let labels = [];
     let detectionInterval;
     let detectionRunning = false;
-    const expressionsHistory = [];
-    const MAX_HISTORY = 10;
+    let emotionLog = [];
+    let videoStream;
+    const logDiv = document.getElementById('log');
+    const commonDiv = document.getElementById('commonEmotion');
 
-    // Fixed thresholds
-    const kiligThreshold = 0.5;
-    const gigilThreshold = 0.25;
-    const tampoThreshold = 0.25;
-
-    async function loadModels() {
-      await faceapi.nets.tinyFaceDetector.loadFromUri('./models/tiny_face_detector_model');
-      await faceapi.nets.faceExpressionNet.loadFromUri('./models/face_expression_model');
+    async function loadModelAndLabels() {
+      logDiv.innerText = 'Loading model...';
+      model = await tf.loadLayersModel('./tensorflow/model.json');
+      const res = await fetch('./tensorflow/labels.json');
+      labels = await res.json();
+      logDiv.innerText = 'Model and labels loaded. Initializing camera...';
     }
 
     async function initCamera() {
       const video = document.getElementById('video');
-      const logDiv = document.getElementById('log');
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = stream;
-        logDiv.innerText = 'Camera initialized. Click "Start Detection" to begin.';
-      } catch (err) {
-        console.error(err);
-        logDiv.innerText = 'Error accessing camera. Please allow webcam permissions.';
-      }
+      videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = videoStream;
+      await new Promise(resolve => video.onloadedmetadata = resolve);
+      video.play();
+      logDiv.innerText = 'Camera ready. Click "Start Detection" to begin.';
     }
 
-    function mapToFilipinoEmotion(history) {
-      const avg = {
-        happy: 0,
-        surprised: 0,
-        angry: 0,
-        disgusted: 0,
-        sad: 0,
-        neutral: 0,
-        fearful: 0
-      };
+    function preprocess(video) {
+      return tf.tidy(() => {
+        let img = tf.browser.fromPixels(video);
+        img = tf.image.resizeBilinear(img, [224, 224]);
+        img = img.div(255.0).expandDims(0);
+        return img;
+      });
+    }
 
-      history.forEach(e => {
-        for (let k in avg) {
-          avg[k] += e[k] / history.length;
-        }
+    async function analyzeFrame(video, overlay) {
+      const ctx = overlay.getContext('2d');
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+      const input = preprocess(video);
+      const prediction = model.predict(input);
+      const data = await prediction.data();
+
+      const topIdx = data.indexOf(Math.max(...data));
+      let detectedEmotion = labels[topIdx].toLowerCase(); // Force to lowercase!
+
+      ctx.font = '20px Arial';
+      ctx.fillStyle = 'yellow';
+      ctx.fillText(`Detected: ${detectedEmotion}`, 20, 40);
+
+      const logEntry = {
+        time: new Date().toLocaleTimeString(),
+        filipino: detectedEmotion
+      };
+      emotionLog.push(logEntry);
+
+      logDiv.innerText = emotionLog
+        .slice(-5)
+        .map(entry => `[${entry.time}] ${entry.filipino}`)
+        .join('\n');
+
+      updateMostCommonEmotion();
+
+      tf.dispose([input, prediction]);
+    }
+
+    function updateMostCommonEmotion() {
+      if (emotionLog.length === 0) {
+        commonDiv.innerText = '';
+        return;
+      }
+
+      const counts = {};
+      emotionLog.forEach(entry => {
+        counts[entry.filipino] = (counts[entry.filipino] || 0) + 1;
       });
 
-      if (avg.happy > kiligThreshold || avg.surprised > kiligThreshold) return "KILIG";
-      if (avg.angry > gigilThreshold) return "GIGIL";
-      if (avg.sad > tampoThreshold) return "TAMPO";
-      return "NEUTRAL";
+      const mostCommon = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])[0][0];
+
+      commonDiv.innerText = `Most Common Detected Emotion: ${mostCommon}`;
     }
 
     function startDetection() {
       const video = document.getElementById('video');
       const overlay = document.getElementById('overlay');
-      const context = overlay.getContext('2d');
-      const logDiv = document.getElementById('log');
-      const commonDiv = document.getElementById('commonEmotion');
-
       overlay.width = video.videoWidth;
       overlay.height = video.videoHeight;
 
-      detectionInterval = setInterval(async () => {
-        const result = await faceapi
-          .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-          .withFaceExpressions();
-
-        context.clearRect(0, 0, overlay.width, overlay.height);
-
-        if (result && result.expressions) {
-          expressionsHistory.push(result.expressions);
-          if (expressionsHistory.length > MAX_HISTORY) expressionsHistory.shift();
-
-          const filipinoEmotion = mapToFilipinoEmotion(expressionsHistory);
-
-          faceapi.draw.drawDetections(overlay, result);
-
-          context.font = '20px Arial';
-          context.fillStyle = 'yellow';
-          context.fillText(`Detected: ${filipinoEmotion}`, 20, 40);
-
-          const logEntry = {
-            time: new Date().toLocaleTimeString(),
-            filipino: filipinoEmotion
-          };
-          emotionLog.push(logEntry);
-
-          logDiv.innerText = emotionLog
-            .slice(-5)
-            .map(entry => `[${entry.time}] ${entry.filipino}`)
-            .join('\n');
-
-          updateMostCommonEmotion(commonDiv);
-        } else {
-          context.font = '20px Arial';
-          context.fillStyle = 'red';
-          context.fillText('No face detected', 20, 40);
-        }
+      detectionInterval = setInterval(() => {
+        analyzeFrame(video, overlay);
       }, 1000);
     }
 
     function stopDetection() {
       clearInterval(detectionInterval);
-      detectionInterval = null;
     }
 
     function toggleDetection() {
@@ -268,34 +259,22 @@
 
     function resetEmotionLog() {
       emotionLog = [];
-      document.getElementById('log').innerText = 'Logs cleared.';
-      document.getElementById('commonEmotion').innerText = '';
-    }
-
-    function updateMostCommonEmotion(commonDiv) {
-      if (emotionLog.length === 0) {
-        commonDiv.innerText = '';
-        return;
-      }
-
-      const counts = {};
-      emotionLog.forEach(entry => {
-        counts[entry.filipino] = (counts[entry.filipino] || 0) + 1;
-      });
-
-      const mostCommon = Object.entries(counts)
-        .sort((a, b) => b[1] - a[1])[0][0];
-
-      commonDiv.innerText = `Most Common Detected Emotion: ${mostCommon}`;
+      logDiv.innerText = 'Logs cleared.';
+      commonDiv.innerText = '';
     }
 
     window.addEventListener('DOMContentLoaded', async () => {
-      await loadModels();
-      await initCamera();
+      try {
+        await loadModelAndLabels();
+        await initCamera();
 
-      document.getElementById('toggleDetection').addEventListener('click', toggleDetection);
-      document.getElementById('downloadLog').addEventListener('click', downloadEmotionLog);
-      document.getElementById('resetLog').addEventListener('click', resetEmotionLog);
+        document.getElementById('toggleDetection').addEventListener('click', toggleDetection);
+        document.getElementById('downloadLog').addEventListener('click', downloadEmotionLog);
+        document.getElementById('resetLog').addEventListener('click', resetEmotionLog);
+      } catch (err) {
+        console.error(err);
+        logDiv.innerText = 'Error initializing app. Check console for details.';
+      }
     });
   </script>
 </body>
