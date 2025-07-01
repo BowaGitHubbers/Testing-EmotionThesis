@@ -74,7 +74,7 @@
 </head>
 <body>
   <div class="container py-4">
-    <h1 class="mb-3">Customer Feedback Survey with Live Emotion Detection</h1>
+    <h1 class="mb-3">Respondent Emotion Detector</h1>
     <p class="mb-5">
       Fill out the survey on the right while we analyze your live reactions on the left!
     </p>
@@ -181,7 +181,7 @@
             filipinoEmotion = "TAMPO";
           } else if (expressions.happy > 0.3 || expressions.surprised > 0.3) {
             filipinoEmotion = "KILIG";
-          } else if (expressions.angry > 0.15 || expressions.disgusted > 0.15) {
+          } else if (expressions.angry > 0.80 || expressions.disgusted > 0.80) {
             filipinoEmotion = "GIGIL";
           } else {
             filipinoEmotion = "NEUTRAL";
