@@ -70,6 +70,17 @@
       font-weight: bold;
       text-align: center;
     }
+    #thresholdControls {
+      margin-top: 1rem;
+      background-color: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 1rem;
+      color: #ffc107;
+    }
+    .form-range {
+      background-color: #ffc107;
+    }
   </style>
 </head>
 <body>
@@ -98,6 +109,24 @@
             </div>
             <div id="log" class="mt-3">Click "Start Detection" to begin.</div>
             <div id="commonEmotion"></div>
+
+            <!-- Threshold Controls -->
+            <div id="thresholdControls">
+              <h5>Threshold Controls</h5>
+              <div class="mb-2">
+                <label for="kiligThreshold">KILIG (happy/surprised): <span id="kiligValue">0.5</span></label>
+                <input type="range" id="kiligThreshold" min="0.1" max="1" step="0.01" value="0.5" class="form-range">
+              </div>
+              <div class="mb-2">
+                <label for="gigilThreshold">GIGIL (angry): <span id="gigilValue">0.4</span></label>
+                <input type="range" id="gigilThreshold" min="0.1" max="1" step="0.01" value="0.4" class="form-range">
+              </div>
+              <div class="mb-2">
+                <label for="tampoThreshold">TAMPO (sad): <span id="tampoValue">0.4</span></label>
+                <input type="range" id="tampoThreshold" min="0.1" max="1" step="0.01" value="0.4" class="form-range">
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
@@ -128,7 +157,10 @@
     let detectionRunning = false;
     const expressionsHistory = [];
     const MAX_HISTORY = 10;
-    let lastLogTime = null;
+
+    let kiligThreshold = 0.5;
+    let gigilThreshold = 0.4;
+    let tampoThreshold = 0.4;
 
     async function loadModels() {
       await faceapi.nets.tinyFaceDetector.loadFromUri('./models/tiny_face_detector_model');
@@ -166,9 +198,9 @@
         }
       });
 
-      if (avg.happy > 0.5 || avg.surprised > 0.5) return "KILIG";
-      if (avg.angry > 0.4) return "GIGIL";
-      if (avg.sad > 0.4) return "TAMPO";
+      if (avg.happy > kiligThreshold || avg.surprised > kiligThreshold) return "KILIG";
+      if (avg.angry > gigilThreshold) return "GIGIL";
+      if (avg.sad > tampoThreshold) return "TAMPO";
       return "NEUTRAL";
     }
 
@@ -201,24 +233,18 @@
           context.fillStyle = 'yellow';
           context.fillText(`Detected: ${filipinoEmotion}`, 20, 40);
 
-          // Log only once every 30 seconds
-          const now = Date.now();
-          if (!lastLogTime || now - lastLogTime >= 30000) {
-            lastLogTime = now;
-            const logEntry = {
-              time: new Date().toLocaleTimeString(),
-              filipino: filipinoEmotion
-            };
-            emotionLog.push(logEntry);
+          const logEntry = {
+            time: new Date().toLocaleTimeString(),
+            filipino: filipinoEmotion
+          };
+          emotionLog.push(logEntry);
 
-            logDiv.innerText = emotionLog
-              .slice(-5)
-              .map(entry => `[${entry.time}] ${entry.filipino}`)
-              .join('\n');
+          logDiv.innerText = emotionLog
+            .slice(-5)
+            .map(entry => `[${entry.time}] ${entry.filipino}`)
+            .join('\n');
 
-            updateMostCommonEmotion(commonDiv);
-          }
-
+          updateMostCommonEmotion(commonDiv);
         } else {
           context.font = '20px Arial';
           context.fillStyle = 'red';
@@ -298,6 +324,19 @@
       document.getElementById('toggleDetection').addEventListener('click', toggleDetection);
       document.getElementById('downloadLog').addEventListener('click', downloadEmotionLog);
       document.getElementById('resetLog').addEventListener('click', resetEmotionLog);
+
+      document.getElementById('kiligThreshold').addEventListener('input', e => {
+        kiligThreshold = parseFloat(e.target.value);
+        document.getElementById('kiligValue').innerText = kiligThreshold.toFixed(2);
+      });
+      document.getElementById('gigilThreshold').addEventListener('input', e => {
+        gigilThreshold = parseFloat(e.target.value);
+        document.getElementById('gigilValue').innerText = gigilThreshold.toFixed(2);
+      });
+      document.getElementById('tampoThreshold').addEventListener('input', e => {
+        tampoThreshold = parseFloat(e.target.value);
+        document.getElementById('tampoValue').innerText = tampoThreshold.toFixed(2);
+      });
     });
   </script>
 </body>
